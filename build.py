@@ -3,6 +3,13 @@ import os
 import shutil
 from datetime import datetime
 from PIL import Image
+import sys
+import codecs
+
+if sys.platform.startswith('win'):
+    # 设置控制台输出编码为 utf-8
+    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer)
+    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer)
 
 def convert_png_to_ico(png_path, ico_path):
     """将 PNG 转换为 ICO"""
@@ -94,7 +101,7 @@ VSVersionInfo(
 
 def build_app():
     """构建应用程序"""
-    # 清理旧的构建文件
+    # 清理旧���构建文件
     clean_build()
     
     # 创建版本文件
