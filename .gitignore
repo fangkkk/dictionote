@@ -1,0 +1,24 @@
+# 虚拟环境
+venv/
+env/
+.env/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 构建目录
+build/
+dist/
+*.spec
+
+# 数据文件
+data/notes/*
+data/config/*
+!data/notes/.gitkeep
+!data/config/.gitkeep
+
+# IDE
+.vscode/
+.idea/
