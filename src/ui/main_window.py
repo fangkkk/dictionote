@@ -2,14 +2,14 @@ from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QTextEdit, QLineEdit, QMessageBox, QPushButton,
     QMenu, QListWidget, QListWidgetItem, QApplication,
-    QCalendarWidget, QDialog, QLabel, QSplitter, QFontDialog  # 添加 QDialog 和 QLabel 以及 QSplitter 和 QFontDialog
+    QCalendarWidget, QDialog, QLabel, QSplitter, QFontDialog
 )
 from PyQt6.QtGui import QIcon, QColor, QPixmap, QFont
-from PyQt6.QtCore import Qt, QPoint, QTimer
+from PyQt6.QtCore import Qt, QPoint, QTimer, QDate
 from ..main.note_manager import NoteManager
 from ..utils.note_storage import NoteStorage
 from .color_dialog import ColorDialog
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import sys
 import markdown
@@ -143,6 +143,23 @@ class MainWindow(QMainWindow):
         # 日期区域（包含按钮和状态图标）
         date_container = QHBoxLayout()
         
+        # 上一天按钮
+        self.prev_date_button = QPushButton()
+        self.prev_date_button.setIcon(QIcon("resources/icons/prev.png"))
+        self.prev_date_button.setFixedSize(24, 24)
+        self.prev_date_button.clicked.connect(self.goto_prev_date)
+        self.prev_date_button.setStyleSheet("""
+            QPushButton {
+                border: none;
+                padding: 3px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: rgba(44, 62, 80, 0.1);
+            }
+        """)
+        date_container.addWidget(self.prev_date_button)
+        
         # 日期按钮
         self.date_button = QPushButton()
         self.date_button.setStyleSheet("""
@@ -161,7 +178,24 @@ class MainWindow(QMainWindow):
         self.date_button.clicked.connect(self.show_calendar)
         date_container.addWidget(self.date_button)
         
-        # 期状态图标
+        # 下一天按钮
+        self.next_date_button = QPushButton()
+        self.next_date_button.setIcon(QIcon("resources/icons/next.png"))
+        self.next_date_button.setFixedSize(24, 24)
+        self.next_date_button.clicked.connect(self.goto_next_date)
+        self.next_date_button.setStyleSheet("""
+            QPushButton {
+                border: none;
+                padding: 3px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: rgba(44, 62, 80, 0.1);
+            }
+        """)
+        date_container.addWidget(self.next_date_button)
+        
+        # 日期状态图标
         self.date_status = QLabel()
         self.date_status.setFixedSize(16, 16)
         date_container.addWidget(self.date_status)
@@ -383,7 +417,7 @@ class MainWindow(QMainWindow):
         """删除当前便签"""
         if not self.current_note:
             return
-            
+        
         reply = QMessageBox.question(
             self,
             u"确认删除",
@@ -393,19 +427,32 @@ class MainWindow(QMainWindow):
         )
         
         if reply == QMessageBox.StandardButton.Yes:
-            self.note_manager.delete_note(self.current_note['id'])
-            notes = self.note_manager.get_all_notes()
-            if notes:
-                self.current_note = notes[0]
-                self.update_ui()
+            # 获取便签 ID
+            note_id = self.current_note.get('id')
+            if not note_id:
+                QMessageBox.warning(self, "错误", "无效的便签ID")
+                return
+            
+            # 删除便签
+            if self.note_manager.delete_note(note_id):
+                # 重新加载当前日期的便签
+                self.note_manager._load_notes()
+                notes = self.note_manager.notes
+                
+                if notes:
+                    # 如果还有其他便签，显示第一个
+                    self.current_note = next(iter(notes.values()))
+                    self.update_ui()
+                else:
+                    # 如果没有便签了，创建新便签
+                    self.create_note()
             else:
-                self.create_note()
+                QMessageBox.warning(self, "错误", "删除便签失败")
     
     def show_notes_list(self):
-        """显示当前工作期的便签列表"""
+        """显示当前日期的便签列表"""
         # 创建便签列表对话框
         dialog = QDialog(self)
-        # 使用工作日期而不是当前日期
         dialog.setWindowTitle(f"{self.note_manager.working_date.strftime('%Y-%m-%d')} 的便签")
         dialog.setFixedSize(400, 300)
         
@@ -434,14 +481,13 @@ class MainWindow(QMainWindow):
             }
         """)
         
-        # 获取工作日期的便签
-        notes = self.note_manager.notes  # 直接使用前加载的便签
+        # 获取当前日期的便签
+        notes = self.note_manager.notes
         
         # 添加便签到列表
         for note_id, note in notes.items():
-            note['id'] = note_id  # 确保便签有 id
             item = QListWidgetItem(note.get('title', '无标题'))
-            item.setData(Qt.ItemDataRole.UserRole, note)  # 存储完整的便签数据
+            item.setData(Qt.ItemDataRole.UserRole, note)
             list_widget.addItem(item)
         
         layout.addWidget(list_widget)
@@ -454,146 +500,8 @@ class MainWindow(QMainWindow):
         def open_selected_note():
             if list_widget.currentItem():
                 note = list_widget.currentItem().data(Qt.ItemDataRole.UserRole)
-                self.current_note = note  # 设置当前便签
-                self.update_ui()  # 更新界面
-                dialog.accept()
-        open_button.clicked.connect(open_selected_note)
-        button_layout.addWidget(open_button)
-        
-        # 取消按钮
-        cancel_button = QPushButton("取消")
-        cancel_button.clicked.connect(dialog.reject)
-        button_layout.addWidget(cancel_button)
-        
-        layout.addLayout(button_layout)
-        
-        # 双击打开便签
-        list_widget.itemDoubleClicked.connect(lambda item: open_selected_note())
-        
-        # 默认选中一项
-        if list_widget.count() > 0:
-            list_widget.setCurrentRow(0)
-        
-        dialog.exec()
-    
-    def show_calendar(self):
-        """显示日历对话框"""
-        dialog = QDialog(self)
-        dialog.setWindowTitle("选择日期")
-        dialog.setFixedSize(300, 250)
-        
-        layout = QVBoxLayout(dialog)
-        
-        # 日历控件
-        calendar = QCalendarWidget()
-        calendar.setMinimumDate(datetime.now().date())  # 只允许选择今天及以后的日期
-        calendar.clicked.connect(lambda date: self.open_notes_file(date))
-        calendar.clicked.connect(dialog.accept)
-        
-        layout.addWidget(calendar)
-        dialog.exec()
-    
-    def set_working_date(self, date_obj):
-        """设置工作日期并更新显示"""
-        self.note_manager.set_working_date(date_obj)
-        # 更新日期按钮显示为工作日期
-        self.date_button.setText(date_obj.strftime("%Y-%m-%d"))
-        # 更新状态图标
-        self.update_date_status()
-    
-    def open_notes_file(self, date):
-        """打开指定日期的便签文件"""
-        date_obj = date.toPyDate()
-        
-        # 设置工作日期并更新显示
-        self.set_working_date(date_obj)
-        notes = self.note_manager.storage.get_daily_notes(date_obj)
-        
-        if not notes:
-            # 如果是未来日期且没有便签，询问是否创建
-            if date_obj > datetime.now().date():
-                reply = QMessageBox.question(
-                    self,
-                    "创建便签",
-                    f"是否在 {date_obj.strftime('%Y-%m-%d')} 创建新便签？",
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                    QMessageBox.StandardButton.Yes
-                )
-                
-                if reply == QMessageBox.StandardButton.Yes:
-                    # 创建默认便签
-                    note = {
-                        'title': f"{date_obj.strftime('%Y-%m-%d')} 计划",
-                        'content': '今天的计划：\n\n1. \n2. \n3. ',
-                        'created_at': datetime.now().isoformat(),
-                        'updated_at': datetime.now().isoformat()
-                    }
-                    
-                    if self.note_manager.storage.create_future_note(date_obj, note):
-                        # 重新获取便签
-                        notes = self.note_manager.storage.get_daily_notes(date_obj)
-                    else:
-                        QMessageBox.warning(self, "错误", "创建便签失败")
-                        return
-                else:
-                    return
-            else:
-                QMessageBox.information(
-                    self,
-                    "提示",
-                    f"{date.toString('yyyy-MM-dd')} 没有便签记录"
-                )
-                return
-        
-        # 显示便签列表
-        dialog = QDialog(self)
-        dialog.setWindowTitle(f"{date_obj.strftime('%Y-%m-%d')} 的便签")
-        dialog.setFixedSize(400, 300)
-        
-        layout = QVBoxLayout(dialog)
-        
-        # 便签列表
-        list_widget = QListWidget()
-        list_widget.setStyleSheet("""
-            QListWidget {
-                background-color: white;
-                border: 1px solid #ccc;
-                border-radius: 3px;
-                color: #2c3e50;
-            }
-            QListWidget::item {
-                padding: 8px;
-                border-bottom: 1px solid #eee;
-                background-color: white;
-            }
-            QListWidget::item:hover {
-                background-color: #f5f5f5;
-            }
-            QListWidget::item:selected {
-                background-color: #3498db;
-                color: white;
-            }
-        """)
-        
-        # 添加便签到列表
-        for note_id, note in notes.items():
-            note['id'] = note_id  # 确保便签有 id
-            item = QListWidgetItem(note.get('title', '无标题'))
-            item.setData(Qt.ItemDataRole.UserRole, note)  # 存储完整的便签数据
-            list_widget.addItem(item)
-        
-        layout.addWidget(list_widget)
-        
-        # 按钮区域
-        button_layout = QHBoxLayout()
-        
-        # 打开按钮
-        open_button = QPushButton("打开")
-        def open_selected_note():
-            if list_widget.currentItem():
-                note = list_widget.currentItem().data(Qt.ItemDataRole.UserRole)
-                self.current_note = note  # 设置当前便签
-                self.update_ui()  # 更新界面
+                self.current_note = note
+                self.update_ui()
                 dialog.accept()
         open_button.clicked.connect(open_selected_note)
         button_layout.addWidget(open_button)
@@ -611,9 +519,143 @@ class MainWindow(QMainWindow):
         # 默认选中第一项
         if list_widget.count() > 0:
             list_widget.setCurrentRow(0)
-            open_selected_note()  # 自动打开第一个便签
         
         dialog.exec()
+    
+    def show_calendar(self):
+        """显示日历对话框"""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("选择日期")
+        dialog.setFixedSize(400, 350)  # 调整大小以适应更多内容
+        
+        layout = QVBoxLayout(dialog)
+        
+        # 日历控件
+        calendar = QCalendarWidget()
+        # 移除最小日期限制，允许查看历史便签
+        # calendar.setMinimumDate(datetime.now().date())
+        
+        # 添加日期提示标签
+        date_label = QLabel()
+        date_label.setStyleSheet("""
+            QLabel {
+                color: #666;
+                padding: 5px;
+            }
+        """)
+        
+        def update_date_info(date):
+            """更新日期信息"""
+            selected_date = date.toPyDate()
+            current_date = datetime.now().date()
+            
+            if selected_date > current_date:
+                date_label.setText("未来日期 - 可以创建新便签")
+                date_label.setStyleSheet("QLabel { color: #27ae60; }")  # 绿色
+            elif selected_date < current_date:
+                date_label.setText("历史日期 - 仅可查看")
+                date_label.setStyleSheet("QLabel { color: #e74c3c; }")  # 红色
+            else:
+                date_label.setText("当前日期")
+                date_label.setStyleSheet("QLabel { color: #2980b9; }")  # 蓝色
+        
+        # 连接日期变化信号
+        calendar.selectionChanged.connect(lambda: update_date_info(calendar.selectedDate()))
+        
+        # 初始化日期信息
+        update_date_info(calendar.selectedDate())
+        
+        layout.addWidget(calendar)
+        layout.addWidget(date_label)
+        
+        # 按钮区域
+        button_layout = QHBoxLayout()
+        
+        # 打开按钮
+        open_button = QPushButton("打开")
+        def open_selected_date():
+            selected_date = calendar.selectedDate().toPyDate()
+            current_date = datetime.now().date()
+            
+            if selected_date <= current_date:
+                # 过去或当前日期：直接打开
+                self.open_notes_file(calendar.selectedDate())
+                dialog.accept()
+            else:
+                # 未来日期：询问是否创建新便签
+                reply = QMessageBox.question(
+                    dialog,
+                    "创建便签",
+                    f"是否在 {selected_date.strftime('%Y-%m-%d')} 创建新便签？",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.Yes
+                )
+                
+                if reply == QMessageBox.StandardButton.Yes:
+                    self.open_notes_file(calendar.selectedDate())
+                    dialog.accept()
+        
+        open_button.clicked.connect(open_selected_date)
+        button_layout.addWidget(open_button)
+        
+        # 取消按钮
+        cancel_button = QPushButton("取消")
+        cancel_button.clicked.connect(dialog.reject)
+        button_layout.addWidget(cancel_button)
+        
+        layout.addLayout(button_layout)
+        
+        # 双击日期时自动打开
+        calendar.activated.connect(lambda: open_selected_date())
+        
+        dialog.exec()
+    
+    def set_working_date(self, date_obj):
+        """设置工作日期并更新显示"""
+        self.note_manager.set_working_date(date_obj)
+        # 更新日期按钮显示为工作日期
+        self.date_button.setText(date_obj.strftime("%Y-%m-%d"))
+        # 更新状态图标
+        self.update_date_status()
+    
+    def open_notes_file(self, date):
+        """打开指定日期的便签文件"""
+        date_obj = date.toPyDate()
+        current_date = datetime.now().date()
+        
+        # 设置工作日期并更新显示
+        self.set_working_date(date_obj)
+        
+        # 如果是历史日期，设置编辑器为只读
+        is_history = date_obj < current_date
+        self.note_edit.setReadOnly(is_history)
+        self.title_edit.setReadOnly(is_history)
+        
+        # 加载便签
+        self.note_manager._load_notes()  # 重新加载当前工作日期的便签
+        notes = self.note_manager.notes
+        
+        if not notes:
+            if date_obj > current_date:
+                # 未来日期：创建新便签
+                self.create_note()  # 使用统一的创建便签方法
+            else:
+                # 历史日期：显示提示
+                QMessageBox.information(
+                    self,
+                    "提示",
+                    f"{date_obj.strftime('%Y-%m-%d')} 没有便签记录"
+                )
+                return
+        else:
+            # 如果有多个便签，显示列表让用户选择
+            if len(notes) > 1:
+                self.show_notes_list()
+            else:
+                # 只有一个便签时直接显示
+                note = next(iter(notes.values()))
+                self.current_note = note
+                self.update_ui()
     
     def load_notes_for_date(self, date):
         """加载指定日期的便签"""
@@ -808,3 +850,15 @@ class MainWindow(QMainWindow):
             self.config_manager.get("fonts.title_size", 14)
         )
         self.title_edit.setFont(title_font)
+    
+    def goto_prev_date(self):
+        """切换到前一天"""
+        current_date = self.note_manager.working_date
+        prev_date = current_date - timedelta(days=1)
+        self.open_notes_file(QDate(prev_date.year, prev_date.month, prev_date.day))
+    
+    def goto_next_date(self):
+        """切换到后一天"""
+        current_date = self.note_manager.working_date
+        next_date = current_date + timedelta(days=1)
+        self.open_notes_file(QDate(next_date.year, next_date.month, next_date.day))
