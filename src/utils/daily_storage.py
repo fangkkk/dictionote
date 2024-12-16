@@ -95,3 +95,31 @@ class DailyStorage:
         except Exception as e:
             print(f"创建未来便签失败: {e}")
             return False 
+    
+    def get_all_notes(self) -> Dict[str, dict]:
+        """获取所有便签"""
+        all_notes = {}
+        
+        # 遍历存储目录中的所有 json 文件
+        for filename in os.listdir(self.storage_dir):
+            if filename.endswith('.json'):
+                file_path = os.path.join(self.storage_dir, filename)
+                try:
+                    # 从文件名获取日期
+                    date_str = filename.replace('.json', '').replace('_', '-')
+                    
+                    # 读取文件内容
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        notes = json.load(f)
+                        
+                    # 为每个便签添加日期信息
+                    for note_id, note in notes.items():
+                        note['date'] = date_str
+                        note['id'] = note_id
+                        all_notes[f"{date_str}_{note_id}"] = note
+                        
+                except Exception as e:
+                    print(f"读取文件 {filename} 时出错: {e}")
+                    continue
+        
+        return all_notes 

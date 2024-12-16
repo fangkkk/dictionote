@@ -1,15 +1,23 @@
-import json
 import os
-from typing import Dict, Any
+import json
+from typing import Any, Dict
 
 class ConfigManager:
-    def __init__(self, config_dir: str):
+    def __init__(self, config_dir: str = "data/config"):
+        """
+        配置管理器
+        
+        Args:
+            config_dir: 配置文件目录
+        """
         self.config_dir = config_dir
-        self.config_file = os.path.join(config_dir, "config.json")
+        self.config_file = os.path.join(config_dir, "settings.json")
+        
+        # 默认配置
         self.default_config = {
             "storage": {
-                "notes_dir": os.path.join("data", "notes"),
-                "dict_path": os.path.join("dict", "dictionary.mdx")
+                "notes_dir": "data/notes",
+                "dict_path": "dict/dictionary.mdx"
             },
             "colors": {
                 "editor_bg": "#ffffff",
@@ -22,51 +30,51 @@ class ConfigManager:
                 "editor_family": "Consolas",
                 "editor_size": 11,
                 "title_family": "Arial",
-                "title_size": 14,
-                "preview_family": "Arial",
-                "preview_size": 14
+                "title_size": 14
             }
         }
-        self._ensure_directories()
-        self.config = self._load_config()
-    
-    def _ensure_directories(self):
-        """确保必要的目录存在"""
-        directories = [
-            self.config_dir,
-            os.path.join("data", "notes"),
-            os.path.join("data", "config"),
-            os.path.join("dict"),
-            os.path.join("resources", "icons")
-        ]
         
-        for directory in directories:
-            if not os.path.exists(directory):
-                os.makedirs(directory)
+        # 初始化配置
+        self.config: Dict[str, Any] = self.default_config.copy()
+        
+        # 确保目录存在
+        os.makedirs(config_dir, exist_ok=True)
+        
+        # 加载配置
+        self.load_config()
     
-    def _load_config(self) -> Dict[str, Any]:
+    def load_config(self):
         """加载配置文件"""
-        if not os.path.exists(self.config_file):
-            self._save_config(self.default_config)
-            return self.default_config
-            
         try:
-            with open(self.config_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
+            if os.path.exists(self.config_file):
+                with open(self.config_file, 'r', encoding='utf-8') as f:
+                    loaded_config = json.load(f)
+                    # 合并加载的配置和默认配置
+                    self._merge_configs(self.config, loaded_config)
         except Exception as e:
-            print(f"加载配置文件失败: {e}")
-            return self.default_config
+            print(f"加载配置失败: {e}")
     
-    def _save_config(self, config: Dict[str, Any]):
-        """保存配置文件"""
+    def _merge_configs(self, base: dict, update: dict):
+        """递归合并配置字典"""
+        for key, value in update.items():
+            if key in base and isinstance(base[key], dict) and isinstance(value, dict):
+                self._merge_configs(base[key], value)
+            else:
+                base[key] = value
+    
+    def save_config(self):
+        """保存配置到文件"""
         try:
             with open(self.config_file, 'w', encoding='utf-8') as f:
-                json.dump(config, f, ensure_ascii=False, indent=2)
+                json.dump(self.config, f, ensure_ascii=False, indent=2)
+            return True
         except Exception as e:
-            print(f"保存配置文件失败: {e}")
+            print(f"保存配置失败: {e}")
+            return False
     
     def get(self, key: str, default: Any = None) -> Any:
-        """获取配置项"""
+        """获取配置值"""
+        # 支持点号分隔的键
         keys = key.split('.')
         value = self.config
         for k in keys:
@@ -76,13 +84,22 @@ class ConfigManager:
                 return default
         return value
     
-    def set(self, key: str, value: Any):
-        """设置配置项"""
+    def set(self, key: str, value: Any) -> bool:
+        """设置配置值"""
+        # 支持点号分隔的键
         keys = key.split('.')
         config = self.config
+        
+        # 遍历键路径
         for k in keys[:-1]:
             if k not in config:
                 config[k] = {}
+            elif not isinstance(config[k], dict):
+                config[k] = {}
             config = config[k]
+        
+        # 设置最终值
         config[keys[-1]] = value
-        self._save_config(self.config)
+        
+        # 立即保存配置
+        return self.save_config()

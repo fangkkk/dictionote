@@ -30,7 +30,7 @@ class NoteManager:
         if now != self.current_date:
             self.current_date = now
             self.working_date = now  # 重置工作日期为当前日期
-            self._load_notes()  # 重新��载当天的便签
+            self._load_notes()  # 重新加载当天的便签
             return True
         return False
     
@@ -51,7 +51,7 @@ class NoteManager:
     def create_note(self, title: str = "", content: str = "") -> dict:
         """创建新便签"""
         if not title:
-            title = "新建便签"
+            title = u"新建便签"
         
         note_id = str(len(self.notes) + 1)
         while note_id in self.notes:
@@ -62,7 +62,8 @@ class NoteManager:
             'title': title,
             'content': content,
             'created_at': datetime.now().isoformat(),
-            'updated_at': datetime.now().isoformat()
+            'updated_at': datetime.now().isoformat(),
+            'date': self.working_date.strftime('%Y-%m-%d')
         }
         
         self.notes[note_id] = note
@@ -101,3 +102,7 @@ class NoteManager:
         """获取指定日期的便签"""
         notes = self.storage.get_daily_notes(date)
         return list(notes.values())
+    
+    def get_all_notes(self):
+        """获取所有便签"""
+        return self.storage.get_all_notes()

@@ -365,7 +365,9 @@ class MainWindow(QMainWindow):
         """改变指定区域的颜色"""
         # 保存新的颜色
         self.colors[color_type] = color
-        self.config_manager.set(f"colors.{color_type}", color.name())
+        # 确保调用 set 方法并检查返回值
+        if not self.config_manager.set(f"colors.{color_type}", color.name()):
+            QMessageBox.warning(self, "错误", "保存颜色设置失败")
         
         # 应用颜色
         self.apply_colors()
@@ -430,7 +432,7 @@ class MainWindow(QMainWindow):
             # 获取便签 ID
             note_id = self.current_note.get('id')
             if not note_id:
-                QMessageBox.warning(self, "错误", "无效的便签ID")
+                QMessageBox.warning(self, "错误", "无的便签ID")
                 return
             
             # 删除便签
@@ -440,7 +442,7 @@ class MainWindow(QMainWindow):
                 notes = self.note_manager.notes
                 
                 if notes:
-                    # 如果还有其他便签，显示第一个
+                    # 如果有其他便签，显示第一个
                     self.current_note = next(iter(notes.values()))
                     self.update_ui()
                 else:
@@ -684,8 +686,26 @@ class MainWindow(QMainWindow):
     def update_ui(self):
         """更新界面显示"""
         if self.current_note and 'id' in self.current_note:
-            self.title_edit.setText(self.current_note.get('title', ''))
-            self.note_edit.setPlainText(self.current_note.get('content', ''))  # 使用 setPlainText
+            # 暂时断开信号连接，避免触发更新
+            self.title_edit.blockSignals(True)
+            self.note_edit.blockSignals(True)
+            
+            try:
+                # 更新标题
+                self.title_edit.setText(self.current_note.get('title', ''))
+                
+                # 更新内容
+                content = self.current_note.get('content', '')
+                self.note_edit.setPlainText(content)
+                
+                # 将光标移到开始位置
+                cursor = self.note_edit.textCursor()
+                cursor.movePosition(cursor.MoveOperation.Start)  # 使用正确的枚举值
+                self.note_edit.setTextCursor(cursor)
+            finally:
+                # 恢复信号连接
+                self.title_edit.blockSignals(False)
+                self.note_edit.blockSignals(False)
     
     def on_title_changed(self, text):
         """当标题改变时"""
@@ -828,9 +848,11 @@ class MainWindow(QMainWindow):
         # 显示字体对话框
         font, ok = QFontDialog.getFont(current_font, self)
         if ok:
-            # 保存字体设置
-            self.config_manager.set(f"fonts.{target}_family", font.family())
-            self.config_manager.set(f"fonts.{target}_size", font.pointSize())
+            # 保存字体设置并检查返回值
+            if not self.config_manager.set(f"fonts.{target}_family", font.family()):
+                QMessageBox.warning(self, "错误", "保存字体系列设置失败")
+            if not self.config_manager.set(f"fonts.{target}_size", font.pointSize()):
+                QMessageBox.warning(self, "错误", "保存字体大小设置失败")
             
             # 应用字体
             self.apply_fonts()
