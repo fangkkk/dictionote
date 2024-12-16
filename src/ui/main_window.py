@@ -374,11 +374,17 @@ class MainWindow(QMainWindow):
     
     def apply_colors(self):
         """应用所有颜色设置"""
+        # 获取颜色
+        toolbar_bg = self.colors['toolbar_bg']  # 统一的背景色
+        editor_bg = self.colors['editor_bg']
+        editor_text = self.colors['editor_text']
+        title_text = self.colors['title_text']
+        
         # 编辑区
         self.note_edit.setStyleSheet(f"""
             QTextEdit {{
-                background-color: {self.colors['editor_bg'].name()};
-                color: {self.colors['editor_text'].name()};
+                background-color: {editor_bg.name()};
+                color: {editor_text.name()};
                 border: none;
                 border-radius: 3px;
             }}
@@ -387,26 +393,34 @@ class MainWindow(QMainWindow):
         # 标题
         self.title_edit.setStyleSheet(f"""
             QLineEdit {{
-                background-color: {self.colors['title_bg'].name()};
-                color: {self.colors['title_text'].name()};
+                background-color: {toolbar_bg.name()};
+                color: {title_text.name()};
                 border: none;
                 border-radius: 3px;
                 padding: 3px;
             }}
             QLineEdit:hover {{
-                background-color: {self.colors['title_bg'].lighter(110).name()};
+                background-color: {toolbar_bg.lighter(110).name()};
             }}
             QLineEdit:focus {{
                 border: 1px solid #3498db;
             }}
         """)
         
-        # 工具栏背景
+        # 工具栏背景和按钮
         self.centralWidget().setStyleSheet(f"""
             QWidget {{
-                background-color: {self.colors['toolbar_bg'].name()};
+                background-color: {toolbar_bg.name()};
+            }}
+            QPushButton {{
+                color: {title_text.name()};
             }}
         """)
+        
+        # 更新所有打开的对话框
+        for child in self.findChildren(QDialog):
+            if hasattr(child, 'apply_styles'):
+                child.apply_styles()
     
     def create_note(self):
         """创建新便签"""
@@ -442,7 +456,7 @@ class MainWindow(QMainWindow):
                 notes = self.note_manager.notes
                 
                 if notes:
-                    # 如果有其他便签，显示第一个
+                    # 如果有他便签，显示第一个
                     self.current_note = next(iter(notes.values()))
                     self.update_ui()
                 else:
@@ -722,66 +736,13 @@ class MainWindow(QMainWindow):
             )
     
     def show_settings(self):
-        """显示设置菜单"""
-        menu = QMenu(self)
-        menu.setStyleSheet(self.menu_style)
-        
-        # 添加颜色设置子菜单
-        colors_menu = QMenu(u"颜色设置", self)
-        colors_menu.setStyleSheet(menu.styleSheet())
-        
-        # 添加各种颜色设置选项
-        colors_menu.addAction(u"编辑区背景").triggered.connect(
-            lambda: self.show_color_dialog("editor_bg")
-        )
-        colors_menu.addAction(u"编辑区文字").triggered.connect(
-            lambda: self.show_color_dialog("editor_text")
-        )
-        colors_menu.addAction(u"标题栏背景").triggered.connect(
-            lambda: self.show_color_dialog("title_bg")
-        )
-        colors_menu.addAction(u"标题栏文字").triggered.connect(
-            lambda: self.show_color_dialog("title_text")
-        )
-        colors_menu.addAction(u"工具栏背景").triggered.connect(
-            lambda: self.show_color_dialog("toolbar_bg")
-        )
-        
-        # 添加字体设置子菜单
-        fonts_menu = QMenu(u"字体设置", self)
-        fonts_menu.setStyleSheet(menu.styleSheet())
-        
-        # 编辑区字体
-        editor_font_menu = QMenu(u"编辑区字体", fonts_menu)
-        editor_font_menu.setStyleSheet(menu.styleSheet())
-        editor_font_menu.addAction(u"选择字体...").triggered.connect(
-            lambda: self.show_font_dialog("editor")
-        )
-        fonts_menu.addMenu(editor_font_menu)
-        
-        # 标题字体
-        title_font_menu = QMenu(u"标题字体", fonts_menu)
-        title_font_menu.setStyleSheet(menu.styleSheet())
-        title_font_menu.addAction(u"选择字体...").triggered.connect(
-            lambda: self.show_font_dialog("title")
-        )
-        fonts_menu.addMenu(title_font_menu)
-        
-        menu.addMenu(colors_menu)
-        menu.addMenu(fonts_menu)
-        menu.addSeparator()
-        menu.addAction(u"关于")
-        
-        # 显示菜单
-        button_pos = self.settings_button.mapToGlobal(QPoint(0, self.settings_button.height()))
-        menu.exec(button_pos)
-    
-    def show_color_dialog(self, color_type: str):
-        """显示颜色设置对话框"""
-        current_color = self.get_current_color(color_type)
-        dialog = ColorDialog(current_color, self)
-        dialog.colorChanged.connect(lambda color: self.change_color(color_type, color))
-        dialog.exec()
+        """显示设置窗口"""
+        from .settings_window import SettingsWindow
+        dialog = SettingsWindow(self.config_manager, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            # 应用设置
+            self.apply_colors()
+            self.apply_fonts()
     
     def update_date_button(self):
         """更新日期按钮显示"""
@@ -836,26 +797,6 @@ class MainWindow(QMainWindow):
                     border-radius: 3px;
                 }
             """)
-    
-    def show_font_dialog(self, target: str):
-        """显示字体选择对话框"""
-        # 获取当前字体
-        if target == "editor":
-            current_font = self.note_edit.font()
-        elif target == "title":
-            current_font = self.title_edit.font()
-        
-        # 显示字体对话框
-        font, ok = QFontDialog.getFont(current_font, self)
-        if ok:
-            # 保存字体设置并检查返回值
-            if not self.config_manager.set(f"fonts.{target}_family", font.family()):
-                QMessageBox.warning(self, "错误", "保存字体系列设置失败")
-            if not self.config_manager.set(f"fonts.{target}_size", font.pointSize()):
-                QMessageBox.warning(self, "错误", "保存字体大小设置失败")
-            
-            # 应用字体
-            self.apply_fonts()
     
     def apply_fonts(self):
         """应用字体设置"""
