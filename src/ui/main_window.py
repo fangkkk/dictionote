@@ -114,7 +114,7 @@ class MainWindow(QMainWindow):
     
     def setup_ui(self):
         """设置用户界面"""
-        self.setWindowTitle("便签")
+        self.setWindowTitle(u"便签")
         self.setMinimumSize(600, 400)
         
         # 设置应用程序图标和任务栏图标
@@ -173,7 +173,7 @@ class MainWindow(QMainWindow):
         
         # 标题编辑框
         self.title_edit = QLineEdit()
-        self.title_edit.setPlaceholderText("便签标题")
+        self.title_edit.setPlaceholderText(u"便签标题")
         self.title_edit.setMaximumWidth(200)
         self.title_edit.textChanged.connect(self.on_title_changed)
         title_container.addWidget(self.title_edit)
@@ -193,7 +193,7 @@ class MainWindow(QMainWindow):
         # 将标题区域添加到工具栏
         toolbar_layout.addLayout(title_container)
         
-        # 添加弹簧，使右侧按钮���右
+        # 添加弹簧，使右侧按钮右
         toolbar_layout.addStretch()
         
         # 右侧按钮容器
@@ -205,7 +205,7 @@ class MainWindow(QMainWindow):
         self.new_button = QPushButton()
         self.new_button.setIcon(QIcon("resources/icons/new.png"))
         self.new_button.setToolTipDuration(2000)
-        self.new_button.setToolTip("新建便签")
+        self.new_button.setToolTip(u"新建便签")
         self.new_button.setFixedSize(24, 24)
         self.new_button.clicked.connect(self.create_note)
         right_buttons.addWidget(self.new_button)
@@ -374,7 +374,7 @@ class MainWindow(QMainWindow):
     
     def create_note(self):
         """创建新便签"""
-        note = self.note_manager.create_note("新���便签")
+        note = self.note_manager.create_note(u"新建便签")
         self.current_note = note
         self.title_edit.setText(note['title'])
         self.note_edit.clear()
@@ -386,8 +386,8 @@ class MainWindow(QMainWindow):
             
         reply = QMessageBox.question(
             self,
-            "确认删除",
-            "确定要删除这个便签吗？",
+            u"确认删除",
+            u"确定要删除这个便签吗？",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No
         )
@@ -402,7 +402,7 @@ class MainWindow(QMainWindow):
                 self.create_note()
     
     def show_notes_list(self):
-        """显示当前工作��期的便签列表"""
+        """显示当前工作期的便签列表"""
         # 创建便签列表对话框
         dialog = QDialog(self)
         # 使用工作日期而不是当前日期
@@ -435,11 +435,11 @@ class MainWindow(QMainWindow):
         """)
         
         # 获取工作日期的便签
-        notes = self.note_manager.notes  # 直接使用���前加载的便签
+        notes = self.note_manager.notes  # 直接使用前加载的便签
         
         # 添加便签到列表
         for note_id, note in notes.items():
-            note['id'] = note_id  # 确���便签有 id
+            note['id'] = note_id  # 确保便签有 id
             item = QListWidgetItem(note.get('title', '无标题'))
             item.setData(Qt.ItemDataRole.UserRole, note)  # 存储完整的便签数据
             list_widget.addItem(item)
@@ -619,7 +619,7 @@ class MainWindow(QMainWindow):
         """加载指定日期的便签"""
         notes = self.note_manager.get_daily_notes(date.toPyDate())
         if notes:
-            # 示该日期��便签列表
+            # 示该日期便签列表
             menu = QMenu(self)
             menu.setStyleSheet(self.menu_style)
             
@@ -627,7 +627,7 @@ class MainWindow(QMainWindow):
                 action = menu.addAction(note.get('title', '无标题'))
                 action.triggered.connect(lambda checked, n=note: self.switch_to_note(n))
             
-            # 在列表按钮位置��示菜单
+            # 在列表按钮位置示菜单
             button_pos = self.list_button.mapToGlobal(QPoint(0, self.list_button.height()))
             menu.exec(button_pos)
         else:
@@ -640,7 +640,7 @@ class MainWindow(QMainWindow):
             self.update_ui()
     
     def update_ui(self):
-        """更新界��显示"""
+        """更新界面显示"""
         if self.current_note and 'id' in self.current_note:
             self.title_edit.setText(self.current_note.get('title', ''))
             self.note_edit.setPlainText(self.current_note.get('content', ''))  # 使用 setPlainText
@@ -664,43 +664,43 @@ class MainWindow(QMainWindow):
         menu = QMenu(self)
         menu.setStyleSheet(self.menu_style)
         
-        # 添加颜色设置子菜���
-        colors_menu = QMenu("颜色设置", self)
+        # 添加颜色设置子菜单
+        colors_menu = QMenu(u"颜色设置", self)
         colors_menu.setStyleSheet(menu.styleSheet())
         
         # 添加各种颜色设置选项
-        colors_menu.addAction("编辑区背景").triggered.connect(
+        colors_menu.addAction(u"编辑区背景").triggered.connect(
             lambda: self.show_color_dialog("editor_bg")
         )
-        colors_menu.addAction("编辑区文字").triggered.connect(
+        colors_menu.addAction(u"编辑区文字").triggered.connect(
             lambda: self.show_color_dialog("editor_text")
         )
-        colors_menu.addAction("标题栏背景").triggered.connect(
+        colors_menu.addAction(u"标题栏背景").triggered.connect(
             lambda: self.show_color_dialog("title_bg")
         )
-        colors_menu.addAction("标题栏文字").triggered.connect(
+        colors_menu.addAction(u"标题栏文字").triggered.connect(
             lambda: self.show_color_dialog("title_text")
         )
-        colors_menu.addAction("工具栏背景").triggered.connect(
+        colors_menu.addAction(u"工具栏背景").triggered.connect(
             lambda: self.show_color_dialog("toolbar_bg")
         )
         
         # 添加字体设置子菜单
-        fonts_menu = QMenu("字体设置", self)
+        fonts_menu = QMenu(u"字体设置", self)
         fonts_menu.setStyleSheet(menu.styleSheet())
         
         # 编辑区字体
-        editor_font_menu = QMenu("编辑区字体", fonts_menu)
+        editor_font_menu = QMenu(u"编辑区字体", fonts_menu)
         editor_font_menu.setStyleSheet(menu.styleSheet())
-        editor_font_menu.addAction("��择字体...").triggered.connect(
+        editor_font_menu.addAction(u"选择字体...").triggered.connect(
             lambda: self.show_font_dialog("editor")
         )
         fonts_menu.addMenu(editor_font_menu)
         
         # 标题字体
-        title_font_menu = QMenu("标题字体", fonts_menu)
+        title_font_menu = QMenu(u"标题字体", fonts_menu)
         title_font_menu.setStyleSheet(menu.styleSheet())
-        title_font_menu.addAction("选择字体...").triggered.connect(
+        title_font_menu.addAction(u"选择字体...").triggered.connect(
             lambda: self.show_font_dialog("title")
         )
         fonts_menu.addMenu(title_font_menu)
@@ -708,7 +708,7 @@ class MainWindow(QMainWindow):
         menu.addMenu(colors_menu)
         menu.addMenu(fonts_menu)
         menu.addSeparator()
-        menu.addAction("关于")
+        menu.addAction(u"关于")
         
         # 显示菜单
         button_pos = self.settings_button.mapToGlobal(QPoint(0, self.settings_button.height()))
@@ -733,12 +733,12 @@ class MainWindow(QMainWindow):
                 self.create_note()
     
     def update_date_status(self):
-        """更新日期���态图标"""
+        """更新日期状态图标"""
         current_date = datetime.now().date()
         if self.note_manager.working_date == current_date:
             # 当前日期显示绿色圆圈
             self.date_status.setPixmap(QPixmap("resources/icons/current_date.png"))
-            self.date_status.setToolTip("当前日期")
+            self.date_status.setToolTip(u"当前日期")
             self.date_button.setStyleSheet("""
                 QPushButton {
                     border: none;
@@ -757,9 +757,9 @@ class MainWindow(QMainWindow):
             self.date_status.setPixmap(QPixmap("resources/icons/other_date.png"))
             # 根据日期是过去还是未来显示不同提示
             if self.note_manager.working_date > current_date:
-                self.date_status.setToolTip("未来日期")
+                self.date_status.setToolTip(u"未来日期")
             else:
-                self.date_status.setToolTip("历史日期")
+                self.date_status.setToolTip(u"历史日期")
             # 日期文字也变成红色
             self.date_button.setStyleSheet("""
                 QPushButton {
@@ -770,13 +770,13 @@ class MainWindow(QMainWindow):
                     text-align: left;
                 }
                 QPushButton:hover {
-                    background-color: rgba(231, 76, 60, 0.1);  /* 红��悬停效 */
+                    background-color: rgba(231, 76, 60, 0.1);  /* 红悬停效 */
                     border-radius: 3px;
                 }
             """)
     
     def show_font_dialog(self, target: str):
-        """显示字选择对话框"""
+        """显示字体选择对话框"""
         # 获取当前字体
         if target == "editor":
             current_font = self.note_edit.font()
@@ -786,7 +786,7 @@ class MainWindow(QMainWindow):
         # 显示字体对话框
         font, ok = QFontDialog.getFont(current_font, self)
         if ok:
-            # 存字体设置
+            # 保存字体设置
             self.config_manager.set(f"fonts.{target}_family", font.family())
             self.config_manager.set(f"fonts.{target}_size", font.pointSize())
             

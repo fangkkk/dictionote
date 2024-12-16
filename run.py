@@ -3,6 +3,7 @@ import os
 import sys
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtGui import QIcon
+from PyQt6.QtCore import QLocale, QTranslator, QLibraryInfo, QCoreApplication
 from src.main.init import init_project
 from src.main.note_manager import NoteManager
 from src.ui.main_window import MainWindow
@@ -23,12 +24,38 @@ def setup_environment():
     os.makedirs("data/notes", exist_ok=True)
     os.makedirs("resources/icons", exist_ok=True)
 
+def setup_qt_encoding():
+    """设置 Qt 的编码和本地化"""
+    # 设置默认编码为 UTF-8
+    if hasattr(sys, 'setdefaultencoding'):
+        sys.setdefaultencoding('utf-8')
+    
+    # 设置环境变量
+    os.environ['LANG'] = 'zh_CN.UTF-8'
+    
+    # 设置 Qt 默认编码
+    QCoreApplication.setApplicationName("DictiNote")
+    QCoreApplication.setOrganizationName("YourCompany")
+    
+    # 强制设置本地化为中文
+    locale = QLocale(QLocale.Language.Chinese, QLocale.Country.China)
+    QLocale.setDefault(locale)
+
 def main():
     try:
         setup_environment()
         
+        # 在创建应用之前设置编码和本地化
+        setup_qt_encoding()
+        
         # 创建应用实例
         app = QApplication([])
+        
+        # 加载 Qt 翻译文件
+        translator = QTranslator()
+        qt_translations_path = QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)
+        translator.load("qt_zh_CN", qt_translations_path)
+        app.installTranslator(translator)
         
         # 设置应用程序图标
         app_icon = QIcon("resources/icons/app.png")
