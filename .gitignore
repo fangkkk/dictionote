@@ -7,6 +7,8 @@ env/
 __pycache__/
 *.py[cod]
 *$py.class
+*.so
+.Python
 
 # 构建目录
 build/
@@ -14,11 +16,15 @@ dist/
 *.spec
 
 # 数据文件
-data/notes/*
-data/config/*
+data/notes/*.json
+data/config/*.json
 !data/notes/.gitkeep
 !data/config/.gitkeep
 
 # IDE
 .vscode/
 .idea/
+
+# 临时文件
+*.ico
+version.txt
