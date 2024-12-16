@@ -181,7 +181,7 @@ class SettingsWindow(QDialog):
         """设置关于页面"""
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(20, 20, 20, 20)  # 添加内边距
+        layout.setContentsMargins(20, 20, 20, 20)
         
         # 添加关于信息
         title_label = QLabel("DictiNote")
@@ -194,7 +194,7 @@ class SettingsWindow(QDialog):
         """)
         layout.addWidget(title_label)
         
-        layout.addWidget(QLabel("版本：1.0.4"))
+        layout.addWidget(QLabel("版本：1.1.1"))
         layout.addWidget(QLabel("作者：F Ray"))
         layout.addWidget(QLabel("一个简单的便签应用"))
         
