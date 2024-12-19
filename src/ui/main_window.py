@@ -5,13 +5,21 @@ from PyQt6.QtWidgets import (
     QCalendarWidget, QDialog, QLabel, QSplitter, QFontDialog
 )
 from PyQt6.QtGui import QIcon, QColor, QPixmap, QFont
-from PyQt6.QtCore import Qt, QPoint, QTimer, QDate
-from ..main.note_manager import NoteManager
-from ..utils.note_storage import NoteStorage
-from .color_dialog import ColorDialog
+from PyQt6.QtCore import Qt, QPoint, QTimer, QDate, QTime
+try:
+    from ..main.note_manager import NoteManager
+    from ..utils.note_storage import NoteStorage
+    from .color_dialog import ColorDialog
+except ImportError:
+    # 当直接运行此文件时使用绝对导入
+    import sys
+    from pathlib import Path
+    sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
+    from src.main.note_manager import NoteManager
+    from src.utils.note_storage import NoteStorage
+    from src.ui.color_dialog import ColorDialog
 from datetime import datetime, timedelta
 import os
-import sys
 import markdown
 
 class MarkdownEditor(QTextEdit):
@@ -90,6 +98,20 @@ class MainWindow(QMainWindow):
             }
         """
         
+        # 添加标志来控制待机界面的显示
+        self.idle_disabled = False
+        self.has_focus = True
+        self.is_closing = False
+        
+        # 初始化待机计时器
+        self.idle_timer = QTimer(self)
+        self.idle_timer.timeout.connect(self.check_idle)
+        self.idle_time = self.config_manager.get("appearance.idle_time", 300000)  # 默认5分钟
+        self.last_activity = QTime.currentTime()
+        
+        if self.idle_time > 0:
+            self.idle_timer.start(1000)  # 每秒检查一次
+        
         self.setup_ui()
         self.apply_colors()
         self.apply_fonts()  # 应用字体设置
@@ -107,10 +129,9 @@ class MainWindow(QMainWindow):
             self.current_note = first_note
             self.update_ui()
         
-        # 添加日期更新定时器
-        self.date_timer = QTimer(self)
-        self.date_timer.timeout.connect(self.update_date_button)
-        self.date_timer.start(60000)  # 每分钟更新一次
+        # 创建待机界面
+        from .idle_screen import IdleScreen
+        self.idle_screen = IdleScreen(self)
     
     def setup_ui(self):
         """设置用户界面"""
@@ -551,7 +572,7 @@ class MainWindow(QMainWindow):
         # 移除最小日期限制，允许查看历史便签
         # calendar.setMinimumDate(datetime.now().date())
         
-        # 添加日期提示标签
+        # 添加期提示标签
         date_label = QLabel()
         date_label.setStyleSheet("""
             QLabel {
@@ -739,10 +760,19 @@ class MainWindow(QMainWindow):
         """显示设置窗口"""
         from .settings_window import SettingsWindow
         dialog = SettingsWindow(self.config_manager, self)
+        
+        # 在显示设置窗口时暂时禁用待机
+        old_idle_state = self.idle_disabled
+        self.idle_disabled = True
+        
         if dialog.exec() == QDialog.DialogCode.Accepted:
             # 应用设置
             self.apply_colors()
             self.apply_fonts()
+        
+        # 恢复原来的待机状态并重置活动时间
+        self.idle_disabled = old_idle_state
+        self.last_activity = QTime.currentTime()
     
     def update_date_button(self):
         """更新日期按钮显示"""
@@ -800,19 +830,28 @@ class MainWindow(QMainWindow):
     
     def apply_fonts(self):
         """应用字体设置"""
-        # 编辑区字体
-        editor_font = QFont(
-            self.config_manager.get("fonts.editor_family", "Consolas"),
-            self.config_manager.get("fonts.editor_size", 11)
-        )
-        self.note_edit.setFont(editor_font)
+        # 获取标题字体设置
+        title_family = self.config_manager.get("fonts.title_text_family")
+        title_size = self.config_manager.get("fonts.title_text_size")
         
-        # 标题字体
-        title_font = QFont(
-            self.config_manager.get("fonts.title_family", "Arial"),
-            self.config_manager.get("fonts.title_size", 14)
-        )
-        self.title_edit.setFont(title_font)
+        # 获取编辑器字体设置
+        editor_family = self.config_manager.get("fonts.editor_text_family")
+        editor_size = self.config_manager.get("fonts.editor_text_size")
+        
+        # 应用标题字体
+        if title_family and title_size:
+            title_font = QFont(title_family, title_size)
+            self.title_edit.setFont(title_font)
+        
+        # 应用编辑器字体
+        if editor_family and editor_size:
+            editor_font = QFont(editor_family, editor_size)
+            self.note_edit.setFont(editor_font)
+        
+        # 更新待机界面字体
+        if hasattr(self, 'idle_screen'):
+            # 重新设置UI以应用新字体
+            self.idle_screen.setup_ui()
     
     def goto_prev_date(self):
         """切换到前一天"""
@@ -825,3 +864,100 @@ class MainWindow(QMainWindow):
         current_date = self.note_manager.working_date
         next_date = current_date + timedelta(days=1)
         self.open_notes_file(QDate(next_date.year, next_date.month, next_date.day))
+    
+    def reset_idle_timer(self):
+        """置待机计时器"""
+        self.idle_timer.stop()
+        self.idle_timer.start(self.idle_time)
+    
+    def mouseMoveEvent(self, event):
+        """处理鼠标移动事件"""
+        super().mouseMoveEvent(event)
+        self.last_activity = QTime.currentTime()
+    
+    def keyPressEvent(self, event):
+        """处理键盘事件"""
+        super().keyPressEvent(event)
+        self.last_activity = QTime.currentTime()
+    
+    def show_idle_screen(self):
+        """显示待机界面"""
+        if not self.idle_disabled:
+            self.idle_screen.setGeometry(self.geometry())
+            self.hide()
+            self.idle_screen.show()
+    
+    def set_idle_time(self, time_ms: int):
+        """设置待机时间"""
+        self.idle_time = time_ms
+        self.last_activity = QTime.currentTime()  # 重置活动时间
+        
+        if time_ms > 0:
+            self.idle_timer.start(1000)
+        else:
+            self.idle_timer.stop()
+            if hasattr(self, 'idle_screen'):
+                self.idle_screen.hide()
+    
+    def mousePressEvent(self, event):
+        """处理鼠标点击事件"""
+        super().mousePressEvent(event)
+        self.last_activity = QTime.currentTime()
+    
+    def focusOutEvent(self, event):
+        """失去焦点时的处理"""
+        super().focusOutEvent(event)
+        self.has_focus = False
+    
+    def focusInEvent(self, event):
+        """获得焦点时的处理"""
+        super().focusInEvent(event)
+        self.has_focus = True
+        if hasattr(self, 'idle_screen'):
+            self.idle_screen.hide()
+    
+    def check_idle(self):
+        """检查是否需要进入待机状态"""
+        if self.idle_time <= 0 or self.idle_disabled or self.is_closing:
+            return
+        
+        # 检查是否有任何模态对话框正在显示
+        active_modals = [child for child in self.findChildren(QDialog) if child.isVisible()]
+        if active_modals:
+            # 如果有对话框在显示，重置活动时间
+            self.last_activity = QTime.currentTime()
+            return
+        
+        current_time = QTime.currentTime()
+        elapsed = self.last_activity.msecsTo(current_time)
+        
+        if elapsed >= self.idle_time:
+            self.show_idle_screen()
+    
+    def disable_idle_temporarily(self):
+        """临时禁用待机功能"""
+        self.idle_disabled = True
+        QTimer.singleShot(1000, self.enable_idle)  # 1秒后重新启用
+    
+    def enable_idle(self):
+        """重新启用待机功能"""
+        self.idle_disabled = False
+        self.last_activity = QTime.currentTime()  # 重置活动时间
+    
+    def closeEvent(self, event):
+        """关闭窗口时的处理"""
+        self.is_closing = True
+        if hasattr(self, 'idle_screen'):
+            self.idle_screen.close()  # 关闭待机界面
+        event.accept()
+
+if __name__ == "__main__":
+    import sys
+    from PyQt6.QtWidgets import QApplication
+    from src.main.note_manager import NoteManager
+    
+    app = QApplication(sys.argv)
+    note_manager = NoteManager()
+    window = MainWindow(note_manager)
+    window.show()
+    sys.exit(app.exec())

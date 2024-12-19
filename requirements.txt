@@ -1,3 +1,14 @@
-PyQt6>=6.0.0
-pyinstaller>=6.0.0
-Pillow>=10.0.0 
+altgraph==0.17.4
+Markdown==3.7
+packaging==24.2
+pefile==2023.2.7
+pillow==11.0.0
+Pygments==2.18.0
+pyinstaller==6.11.1
+pyinstaller-hooks-contrib==2024.10
+PyQt6==6.8.0
+PyQt6-Qt6==6.8.1
+PyQt6_sip==13.9.1
+pywin32-ctypes==0.2.3
+readmdict==0.1.1
+setuptools==75.6.0

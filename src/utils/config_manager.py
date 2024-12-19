@@ -27,10 +27,7 @@ class ConfigManager:
                 "toolbar_bg": "#ffffff"
             },
             "fonts": {
-                "editor_family": "Consolas",
-                "editor_size": 11,
-                "title_family": "Arial",
-                "title_size": 14
+                # 移除默认字体设置，让应用程序使用系统默认字体
             }
         }
         
@@ -89,6 +86,18 @@ class ConfigManager:
         # 支持点号分隔的键
         keys = key.split('.')
         config = self.config
+        
+        # 如果值为None，删除该配置项
+        if value is None:
+            try:
+                current = config
+                for k in keys[:-1]:
+                    current = current[k]
+                if keys[-1] in current:
+                    del current[keys[-1]]
+                return self.save_config()
+            except (KeyError, TypeError):
+                return False
         
         # 遍历键路径
         for k in keys[:-1]:

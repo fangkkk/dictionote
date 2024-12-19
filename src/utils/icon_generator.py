@@ -22,6 +22,10 @@ def generate_icons():
     
     # 生成日期状态图标
     generate_date_status_icons()
+    
+    # 生成恢复图标
+    restore_icon = generate_restore_icon()
+    restore_icon.save("resources/icons/restore.png")
 
 def save_icon(icon: QIcon, path: str):
     """保存图标为PNG文件"""
@@ -246,6 +250,28 @@ def generate_date_status_icons():
     # 保存图标
     current_pixmap.save('resources/icons/current_date.png')
     other_pixmap.save('resources/icons/other_date.png')
+
+def generate_restore_icon():
+    """生成恢复图标"""
+    icon = QPixmap(32, 32)
+    icon.fill(Qt.GlobalColor.transparent)
+    
+    painter = QPainter(icon)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    
+    # 设置画笔
+    pen = QPen(QColor("#666666"))
+    pen.setWidth(2)
+    painter.setPen(pen)
+    
+    # 绘制一个简单的恢复图标
+    painter.drawRect(8, 8, 16, 16)
+    painter.drawLine(12, 12, 20, 12)
+    painter.drawLine(16, 8, 16, 16)
+    
+    painter.end()
+    
+    return icon
 
 if __name__ == '__main__':
     from PyQt6.QtWidgets import QApplication
